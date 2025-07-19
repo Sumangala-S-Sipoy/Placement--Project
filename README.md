@@ -1,36 +1,220 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎓 Campus Connect - SDMCET
 
-## Getting Started
+A modern, full-stack placement management system built with Next.js 15, featuring secure authentication, email verification, and a beautiful dark theme interface.
 
-First, run the development server:
+## ✨ Features
+
+- 🔐 **Secure Authentication** - Email/Password + Google OAuth integration
+- 📧 **Email Verification** - AWS SES integration with production-ready SMTP
+- 🎨 **Modern UI** - Dark theme with Tailwind CSS and shadcn/ui components
+- 📱 **Responsive Design** - Mobile-first approach with beautiful animations
+- 🔒 **Security First** - bcrypt hashing, CSRF protection, SQL injection prevention
+- ⚡ **Performance** - Connection pooling, rate limiting, optimized email delivery
+- 🗄️ **Database** - PostgreSQL with Prisma ORM
+- 🚀 **TypeScript** - Full type safety throughout the application
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Node.js 18+ or Bun
+- PostgreSQL database (Neon recommended)
+- AWS SES account
+- Google Cloud Console access
+
+### 1. Clone and Install
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <repository-url>
+cd placement-next
+bun install  # or npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Environment Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Create a `.env` file in the root directory:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```env
+# Database
+DATABASE_URL="postgresql://user:password@host:port/database?sslmode=require"
 
-## Learn More
+# NextAuth.js
+NEXTAUTH_SECRET="your-generated-secret"
+NEXTAUTH_URL="http://localhost:3000"
 
-To learn more about Next.js, take a look at the following resources:
+# Google OAuth
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# AWS SES
+AWS_SES_ACCESS_KEY_ID="your-aws-access-key"
+AWS_SES_SECRET_ACCESS_KEY="your-aws-secret-key"
+AWS_REGION="ap-south-1"
+AWS_SES_REGION="ap-south-1"
+EMAIL_FROM="noreply@yourdomain.com"
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 3. Database Setup
 
-## Deploy on Vercel
+```bash
+# Run database migrations
+bunx prisma migrate dev --name init
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# Generate Prisma client
+bunx prisma generate
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 4. Start Development Server
+
+```bash
+bun dev
+# or
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) to see the application.
+
+## 🔧 Detailed Setup Instructions
+
+### Database Configuration (Neon)
+
+1. Go to [Neon Console](https://console.neon.tech)
+2. Create a new project called "campus-connect"
+3. Copy your database connection string
+4. Update `.env` file with your `DATABASE_URL`
+
+### Google OAuth Setup
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Create a new project or select existing one
+3. Enable Google+ API
+4. Go to "Credentials" → "Create Credentials" → "OAuth 2.0 Client IDs"
+5. Set authorized JavaScript origins: `http://localhost:3000`
+6. Set authorized redirect URIs: `http://localhost:3000/api/auth/callback/google`
+7. Copy Client ID and Client Secret to `.env`
+
+### AWS SES Configuration
+
+1. Go to AWS SES Console
+2. Verify your sending domain/email address
+3. Create SMTP credentials (IAM user with SES permissions)
+4. Update `.env` with your AWS credentials
+5. **Important**: Ensure your account is out of sandbox mode for production
+
+### Generate NextAuth Secret
+
+```bash
+openssl rand -base64 32
+```
+
+Add this to `.env` as `NEXTAUTH_SECRET`
+
+## 🏗️ Project Structure
+
+```
+├── app/                  # Next.js App Router
+│   ├── (auth)/          # Authentication pages
+│   ├── api/             # API routes
+│   ├── dashboard/       # Dashboard pages
+│   └── globals.css      # Global styles
+├── components/          # Reusable UI components
+│   └── ui/             # shadcn/ui components
+├── lib/                # Utility functions
+│   ├── auth.ts         # NextAuth configuration
+│   ├── email.ts        # Email service (production-ready)
+│   └── prisma.ts       # Database client
+├── prisma/             # Database schema and migrations
+└── types/              # TypeScript type definitions
+```
+
+## 🔒 Security Features
+
+- **Password Security**: bcrypt hashing with salt rounds
+- **Session Management**: JWT tokens with secure HTTP-only cookies
+- **CSRF Protection**: Built-in NextAuth.js protection
+- **SQL Injection Prevention**: Prisma ORM with parameterized queries
+- **Email Verification**: Required for account activation
+- **Rate Limiting**: Email sending rate limits (10/second)
+- **Environment Protection**: All secrets in environment variables
+
+## 📧 Email System
+
+The application includes a production-ready email system with:
+
+- **Connection Pooling**: Reuses SMTP connections for performance
+- **Rate Limiting**: Prevents overwhelming email services
+- **Beautiful Templates**: Modern HTML emails matching the app design
+- **Error Handling**: Comprehensive error logging and recovery
+- **AWS SES Integration**: Reliable email delivery with bounce handling
+
+### Test Email Endpoint
+
+Visit `/api/test-email` to test your email configuration.
+
+## 📱 User Flow
+
+1. **Registration**: User visits `/signup` and creates account
+2. **Email Verification**: User receives verification email
+3. **Account Activation**: User clicks email link to verify
+4. **Login**: User can login with credentials or Google OAuth
+5. **Dashboard Access**: Authenticated users access placement features
+
+## 🛠️ Development
+
+### Available Scripts
+
+```bash
+bun dev          # Start development server
+bun build        # Build for production
+bun start        # Start production server
+bun lint         # Run ESLint
+```
+
+### Database Commands
+
+```bash
+bunx prisma studio              # Open Prisma Studio
+bunx prisma migrate dev         # Create and apply migration
+bunx prisma migrate reset       # Reset database
+bunx prisma generate           # Generate Prisma client
+```
+
+## 🚀 Deployment
+
+### Environment Variables for Production
+
+Ensure all environment variables are set in your production environment:
+- Update `NEXTAUTH_URL` to your production domain
+- Use production database URL
+- Configure AWS SES for production (verify domain)
+- Set secure `NEXTAUTH_SECRET`
+
+### Recommended Platforms
+
+- **Vercel**: Seamless Next.js deployment
+- **Railway**: Full-stack deployment with database
+- **AWS**: Complete AWS ecosystem integration
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+## 🆘 Support
+
+For setup issues or questions:
+- Check the troubleshooting section above
+- Review the environment variable configuration
+- Test email delivery with `/api/test-email`
+- Verify database connection with Prisma Studio
+
+---
+
+Built with ❤️ for SDMCET by the Campus Connect Team
