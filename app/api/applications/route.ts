@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth"
 
 // Helper to check tier eligibility (same logic as jobs API)
 function canApplyToTier(studentTier: string | null, jobTier: string, isDreamOffer: boolean): { eligible: boolean; reason?: string } {
+
     if (isDreamOffer) return { eligible: true }
     if (!studentTier) return { eligible: true }
 
@@ -21,69 +22,6 @@ function canApplyToTier(studentTier: string | null, jobTier: string, isDreamOffe
     return { eligible: true }
 }
 
-// GET - Get user's applications (simplified)
-export async function GET(request: NextRequest) {
-    try {
-        const session = await auth()
-
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-        }
-
-        const { searchParams } = new URL(request.url)
-        const page = parseInt(searchParams.get("page") || "1")
-        const limit = parseInt(searchParams.get("limit") || "10")
-        const skip = (page - 1) * limit
-
-        const where = {
-            userId: session.user.id,
-            isRemoved: false
-        }
-
-        const [applications, total] = await Promise.all([
-            prisma.application.findMany({
-                where,
-                orderBy: { appliedAt: "desc" },
-                skip,
-                take: limit,
-                include: {
-                    job: {
-                        select: {
-                            id: true,
-                            title: true,
-                            companyName: true,
-                            companyLogo: true,
-                            location: true,
-                            category: true,
-                            tier: true,
-                            jobType: true,
-                            workMode: true,
-                            salary: true,
-                            deadline: true,
-                            status: true
-                        }
-                    }
-                }
-            }),
-            prisma.application.count({ where })
-        ])
-
-        return NextResponse.json({
-            applications,
-            pagination: {
-                total,
-                page,
-                limit,
-                pages: Math.ceil(total / limit)
-            }
-        })
-
-    } catch (error) {
-        console.error("Error fetching applications:", error)
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 })
-    }
-}
-
 // POST - Apply to a job (one-click)
 export async function POST(request: NextRequest) {
     try {
@@ -95,10 +33,10 @@ export async function POST(request: NextRequest) {
 
         const body = await request.json()
         console.log("Application POST body:", JSON.stringify(body, null, 2))
-        const { jobId, responses } = body
+
+        const { jobId, responses, resumeUrl } = body   // ✅ added resumeUrl
 
         if (!jobId) {
-            console.error("Job ID missing in body")
             return NextResponse.json({ error: "Job ID is required" }, { status: 400 })
         }
 
@@ -121,28 +59,53 @@ export async function POST(request: NextRequest) {
             }
         })
 
-        // ... (lines 121-193 check job existence, status, deadline, existing app, profile, tier, cgpa)
+        if (!job) {
+            return NextResponse.json({ error: "Job not found" }, { status: 404 })
+        }
+
+        // ✅ Fetch profile correctly
+        const userProfile = await prisma.profile.findUnique({
+            where: { userId: session.user.id },
+            select: {
+                branch: true,
+                batch: true,
+                finalCgpa: true,
+                cgpa: true,
+                activeBacklogs: true,
+                hasBacklogs: true,
+            }
+        })
+
+        if (!userProfile) {
+            return NextResponse.json(
+                { error: "Please complete your profile before applying" },
+                { status: 400 }
+            )
+        }
+
+        const cgpa = userProfile.finalCgpa || userProfile.cgpa || 0
+
+        // Check CGPA
+        if (job.minCGPA && cgpa < job.minCGPA) {
+            return NextResponse.json(
+                { error: `Minimum CGPA required: ${job.minCGPA}` },
+                { status: 400 }
+            )
+        }
 
         // Check branch
-        if (job.allowedBranches.length > 0 && userProfile.branch) {
+        if (job.allowedBranches?.length > 0 && userProfile.branch) {
             if (!job.allowedBranches.includes(userProfile.branch)) {
                 return NextResponse.json({
-                    error: `Your branch (${userProfile.branch}) is not eligible for this job`
+                    error: `Your branch (${userProfile.branch}) is not eligible`
                 }, { status: 400 })
             }
         }
 
         // Check batch
         if (job.eligibleBatch && userProfile.batch) {
-            // Helper to extract batch year (e.g. from "2022 - 2026" get "2026")
-            const getBatchYear = (b: string) => {
-                if (!b) return ""
-                const parts = b.split('-')
-                return parts[parts.length - 1].trim()
-            }
-
-            const studentBatchYear = getBatchYear(userProfile.batch)
-            const jobBatchYear = getBatchYear(job.eligibleBatch)
+            const studentBatchYear = userProfile.batch.split('-').pop()?.trim()
+            const jobBatchYear = job.eligibleBatch.split('-').pop()?.trim()
 
             if (studentBatchYear !== jobBatchYear) {
                 return NextResponse.json({
@@ -152,13 +115,18 @@ export async function POST(request: NextRequest) {
         }
 
         // Check backlogs
-        const hasActiveBacklogs = userProfile.activeBacklogs || userProfile.hasBacklogs === "yes"
+        const hasActiveBacklogs =
+            userProfile.activeBacklogs || userProfile.hasBacklogs === "yes"
+
         if (job.maxBacklogs !== null && job.maxBacklogs === 0 && hasActiveBacklogs) {
-            return NextResponse.json({ error: "No active backlogs allowed" }, { status: 400 })
+            return NextResponse.json(
+                { error: "No active backlogs allowed" },
+                { status: 400 }
+            )
         }
 
         // Validate custom fields
-        if (job.customFields && job.customFields.length > 0) {
+        if (job.customFields?.length > 0) {
             for (const field of job.customFields) {
                 const response = responses?.find((r: any) => r.fieldId === field.id)
                 if (field.required && (!response || !response.value)) {
@@ -169,18 +137,20 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // Create application
+        // ✅ Create application (use resumeUrl from frontend)
         const application = await prisma.application.create({
             data: {
                 jobId,
                 userId: session.user.id,
-                resumeUsed: userProfile.resumeUpload || userProfile.resume,
-                responses: responses && Array.isArray(responses) ? {
-                    create: responses.map((r: any) => ({
-                        fieldId: r.fieldId,
-                        value: r.value
-                    }))
-                } : undefined
+                resumeUsed: resumeUrl,   // ✅ fixed
+                responses: responses && Array.isArray(responses)
+                    ? {
+                        create: responses.map((r: any) => ({
+                            fieldId: r.fieldId,
+                            value: r.value
+                        }))
+                    }
+                    : undefined
             }
         })
 
@@ -192,6 +162,9 @@ export async function POST(request: NextRequest) {
 
     } catch (error) {
         console.error("Error applying to job:", error)
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+        return NextResponse.json(
+            { error: "Internal server error" },
+            { status: 500 }
+        )
     }
 }

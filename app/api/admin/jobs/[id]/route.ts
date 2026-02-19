@@ -21,7 +21,8 @@ export async function GET(
                     select: {
                         applications: true
                     }
-                }
+                },
+                customFields: true
             }
         })
 

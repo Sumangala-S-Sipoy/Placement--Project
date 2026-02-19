@@ -13,7 +13,18 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { FileText, User, GraduationCap, Briefcase, Upload, CheckCircle } from "lucide-react"
+import { FileText, User, GraduationCap, Briefcase, Upload, CheckCircle, Info, Trash2 } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 import { format } from "date-fns"
 
 interface ProfileData {
@@ -52,7 +63,7 @@ interface ApplicationReviewDialogProps {
     onOpenChange: (open: boolean) => void
     job: JobData
     profile: ProfileData | null
-    onConfirm: (resumeUrl?: string) => Promise<void>
+    onConfirm: (resumeUrl?: string, responses?: any[]) => Promise<void>
     isApplying: boolean
 }
 
@@ -342,93 +353,124 @@ export function ApplicationReviewDialog({
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 {job.customFields.map((field) => (
-                                    <div key={field.id} className="space-y-2">
-                                        <label className="text-sm font-medium">
-                                            {field.label} {field.required && <span className="text-red-500">*</span>}
-                                        </label>
+                                    <div key={field.id} className="space-y-2 pb-4 border-b last:border-0 last:pb-0">
+                                        <Label htmlFor={field.id} className="text-base font-semibold flex items-center gap-2">
+                                            {field.label}
+                                            {field.required && <span className="text-destructive font-bold">*</span>}
+                                        </Label>
 
                                         {field.type === "TEXT" && (
-                                            <input
+                                            <Input
+                                                id={field.id}
                                                 type="text"
-                                                className="w-full p-2 border rounded-md"
+                                                placeholder={`Enter ${field.label.toLowerCase()}`}
                                                 value={customResponses[field.id] || ""}
                                                 onChange={(e) => handleCustomFieldChange(field.id, e.target.value)}
                                                 required={field.required}
+                                                className="mt-1"
                                             />
                                         )}
 
                                         {field.type === "NUMBER" && (
-                                            <input
+                                            <Input
+                                                id={field.id}
                                                 type="number"
-                                                className="w-full p-2 border rounded-md"
+                                                placeholder="0"
                                                 value={customResponses[field.id] || ""}
                                                 onChange={(e) => handleCustomFieldChange(field.id, e.target.value)}
                                                 required={field.required}
+                                                className="mt-1"
                                             />
                                         )}
 
                                         {field.type === "TEXTAREA" && (
-                                            <textarea
-                                                className="w-full p-2 border rounded-md"
-                                                rows={3}
+                                            <Textarea
+                                                id={field.id}
+                                                placeholder={`Enter your response here...`}
+                                                rows={4}
                                                 value={customResponses[field.id] || ""}
                                                 onChange={(e) => handleCustomFieldChange(field.id, e.target.value)}
                                                 required={field.required}
+                                                className="mt-1"
                                             />
                                         )}
 
                                         {field.type === "BOOLEAN" && (
-                                            <div className="flex items-center gap-2">
-                                                <input
-                                                    type="checkbox"
+                                            <div className="flex items-center space-x-2 bg-muted/30 p-3 rounded-md mt-1">
+                                                <Checkbox
                                                     id={field.id}
                                                     checked={customResponses[field.id] || false}
-                                                    onChange={(e) => handleCustomFieldChange(field.id, e.target.checked)}
+                                                    onCheckedChange={(checked) => handleCustomFieldChange(field.id, checked)}
                                                 />
-                                                <label htmlFor={field.id} className="text-sm">Yes</label>
+                                                <Label
+                                                    htmlFor={field.id}
+                                                    className="text-sm font-medium cursor-pointer"
+                                                >
+                                                    Yes, I confirm / I agree
+                                                </Label>
                                             </div>
                                         )}
 
                                         {field.type === "DROPDOWN" && (
-                                            <select
-                                                className="w-full p-2 border rounded-md"
+                                            <Select
                                                 value={customResponses[field.id] || ""}
-                                                onChange={(e) => handleCustomFieldChange(field.id, e.target.value)}
-                                                required={field.required}
+                                                onValueChange={(val) => handleCustomFieldChange(field.id, val)}
                                             >
-                                                <option value="">Select an option</option>
-                                                {Array.isArray(field.options) && field.options.map((opt: string) => (
-                                                    <option key={opt} value={opt}>{opt}</option>
-                                                ))}
-                                            </select>
+                                                <SelectTrigger id={field.id} className="w-full mt-1">
+                                                    <SelectValue placeholder="Select an option" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {Array.isArray(field.options) && field.options.map((opt: string) => (
+                                                        <SelectItem key={opt} value={opt}>
+                                                            {opt}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                         )}
 
                                         {field.type === "FILE_UPLOAD" && (
-                                            <div className="space-y-2">
+                                            <div className="space-y-3 mt-1">
                                                 {customResponses[field.id] ? (
-                                                    <div className="flex items-center gap-2 text-green-600 text-sm">
-                                                        <CheckCircle className="w-4 h-4" />
-                                                        <span>File uploaded</span>
+                                                    <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-lg">
+                                                        <div className="flex items-center gap-2 text-green-700 dark:text-green-400 font-medium text-sm">
+                                                            <CheckCircle className="w-5 h-5" />
+                                                            <span>File Uploaded Successfully</span>
+                                                        </div>
                                                         <Button
-                                                            variant="link"
-                                                            className="h-auto p-0 text-xs"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="text-destructive h-8 px-2 hover:bg-destructive/10"
                                                             onClick={() => handleCustomFieldChange(field.id, "")}
                                                         >
+                                                            <Trash2 className="w-4 h-4 mr-1" />
                                                             Remove
                                                         </Button>
                                                     </div>
                                                 ) : (
-                                                    <input
-                                                        type="file"
-                                                        className="text-sm"
-                                                        onChange={(e) => {
-                                                            const file = e.target.files?.[0]
-                                                            if (file) handleCustomFileUpload(field.id, file)
-                                                        }}
-                                                        disabled={uploadingFields[field.id]}
-                                                    />
+                                                    <div className="flex items-center gap-3">
+                                                        <Input
+                                                            id={field.id}
+                                                            type="file"
+                                                            className="text-sm cursor-pointer"
+                                                            onChange={(e) => {
+                                                                const file = e.target.files?.[0]
+                                                                if (file) handleCustomFileUpload(field.id, file)
+                                                            }}
+                                                            disabled={uploadingFields[field.id]}
+                                                        />
+                                                        {uploadingFields[field.id] && (
+                                                            <div className="flex items-center gap-2 text-primary animate-pulse text-sm">
+                                                                <Upload className="w-4 h-4 animate-bounce" />
+                                                                <span>Uploading...</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 )}
-                                                {uploadingFields[field.id] && <p className="text-xs text-muted-foreground animate-pulse">Uploading...</p>}
+                                                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                                    <Info className="w-3 h-3" />
+                                                    Please upload relevant supporting documents if required.
+                                                </p>
                                             </div>
                                         )}
                                     </div>
